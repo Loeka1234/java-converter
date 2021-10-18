@@ -1,8 +1,11 @@
 package me.loeka;
 
+import me.loeka.errors.IncorrectInputException;
+
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
-import java.lang.reflect.Modifier;
+import java.lang.reflect.Method;
 import java.util.Locale;
 import java.util.Scanner;
 
@@ -11,53 +14,60 @@ public class Main {
     public static void main(String[] args) {
         System.out.println("What conversion do you want to do?");
 
-        var methods = Conversion.class.getDeclaredMethods();
+        var classes = Conversion.class.getClasses();
 
-        for (int i = 0; i < methods.length; i++) {
-            if (Modifier.isPrivate(methods[i].getModifiers()))
-                continue;
-
-            System.out.printf("[%d]: %s\n", i, conversionToConsoleOption(methods[i].getName()));
+        for (int i = 0; i < classes.length; i++) {
+            System.out.printf("[%d]: %s\n", i, conversionToConsoleOption(classes[i].getSimpleName()));
         }
 
         var scanner = new Scanner(System.in);
         var option = scanner.nextInt();
 
-        var method = methods[option];
-        var t = method.getParameterTypes()[0];
-
-        System.out.println("Enter the value you want to convert:");
-        String result = null;
-        try {
-            result = method.invoke(null, readInput(t)).toString();
-        } catch (Exception e) {
-            System.out.println("An unknown exception occured.");
+        var selectedConversion = classes[option];
+        if (selectedConversion.getInterfaces()[0].getSimpleName() != IConversion.class.getSimpleName()) {
+            System.out.println("Oops, something went wrong...");
             System.exit(1);
         }
 
-        System.out.println(result);
+        Object instantiatedConversionClass = null;
+        try {
+            instantiatedConversionClass = selectedConversion.getConstructor().newInstance();
+        } catch (Exception e) {
+            endProgramWithErrorMessage();
+        }
 
-    }
-
-    private static Object readInput(Class<?> c) {
+        System.out.println("Enter the value you want to convert:");
         BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
-
+        Object output = null;
         while (true) {
             try {
-                var line = br.readLine();
-                if (c.getName() == int.class.getName() ||
-                        c.getName() == Integer.class.getName()) {
-                    return Integer.parseInt(line);
-                }
-                return line;
-            } catch (NumberFormatException e) {
-                System.out.println("Incorrect input, try again...");
-                continue;
+                Object converted = getMethodFromConversionClass(selectedConversion, "ParseInputToParameter")
+                        .invoke(instantiatedConversionClass, br.readLine());
+                output = getMethodFromConversionClass(selectedConversion, "Convert")
+                        .invoke(instantiatedConversionClass, converted);
+                break;
             } catch (Exception e) {
-                System.out.println("An unknown exception occured....");
-                System.exit(1);
+                if (e instanceof IOException || e.getCause() instanceof IncorrectInputException) {
+                    System.out.println("Something went wrong while reading your input, please try again...");
+                    continue;
+                }
+                endProgramWithErrorMessage();
             }
         }
+
+        System.out.printf("Converted value: %s", output);
+    }
+
+    private static Method getMethodFromConversionClass(Class<?> conversion, String methodName) throws NoSuchMethodException {
+        for (var method : conversion.getMethods()) {
+            if (method.getName() == methodName) return method;
+        }
+        throw new NoSuchMethodException();
+    }
+
+    private static void endProgramWithErrorMessage() {
+        System.out.println("Oops, something went wrong...");
+        System.exit(1);
     }
 
     private static String conversionToConsoleOption(String s) {
