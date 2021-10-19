@@ -84,7 +84,7 @@ public class Conversion {
 
         @Override
         public String ParseInputToParameter(String input) throws IncorrectInputException {
-            return Conversion.ParseBinaryString(input);
+            return ParseBinaryString(input);
         }
 
         @Override
@@ -131,6 +131,56 @@ public class Conversion {
                 output += new DecimalToBinary().Convert(decimal);
             }
             return output;
+        }
+    }
+
+    public static class BinaryToOctal implements IConversion<String, String> {
+
+        @Override
+        public String ParseInputToParameter(String input) throws IncorrectInputException {
+            return ParseBinaryString(input);
+        }
+
+        @Override
+        public String Convert(String input) {
+            String reversedInput = Utils.ReverseString(input);
+            double iterations = Math.ceil((double) input.length() / 3);
+            String output = "";
+            for (int i = 0; i < iterations; i++) {
+                String part;
+                if (i + 1 == iterations)
+                    part = reversedInput.substring(i * 3);
+                else
+                    part = reversedInput.substring(i * 3, i * 3 + 3);
+
+                output += new BinaryToDecimal().Convert(part);
+            }
+            return Utils.ReverseString(output);
+        }
+    }
+
+    public static class OctalToBinary implements IConversion<String, String> {
+
+        @Override
+        public String ParseInputToParameter(String input) throws IncorrectInputException {
+            for (char c : input.toCharArray())
+                if (!Character.isDigit(c) || c == '8' || c == '9')
+                    throw new IncorrectInputException();
+            return input;
+        }
+
+        @Override
+        public String Convert(String input) throws Exception {
+            var reversedString = Utils.ReverseString(input);
+            var decimal = 0;
+            for (int i = 0; i < reversedString.length(); i++) {
+                var currentCharAsInt = Integer.parseInt(Character.toString(reversedString.charAt(i)));
+                if (i == 0)
+                    decimal += currentCharAsInt;
+                else decimal += currentCharAsInt * Math.pow(8, i);
+            }
+            System.out.println(decimal);
+            return new DecimalToBinary().Convert(decimal);
         }
     }
 }
